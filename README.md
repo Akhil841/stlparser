@@ -1,5 +1,5 @@
 # stlparser
-Parses binary STLs into a partial format for a raytracer I have worked on.
+Parses binary STLs into a format for a raytracer I have worked on.
 
 ## A Pickle for the Knowing Ones
 To use this STL parser, your raytracer will need to have a primitive `stltri nx ny nz v1 v2 v3`. It's like `trinormal`, except instead of taking in three normal indices and three vertex indices, it takes a normal and three vertex indices. The normal is the triangle's normal, and the vertices are the triangle's vertices.
