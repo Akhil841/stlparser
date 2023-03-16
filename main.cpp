@@ -1,35 +1,4 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <vector>
-#include <cmath>
-#include <cfloat>
-
-struct vec3 {
-    float x;
-    float y;
-    float z;
-};
-
-struct triangle{
-    vec3 normal;
-    unsigned int aPos;
-    unsigned int bPos;
-    unsigned int cPos;
-};
-
-vec3 normalize(vec3 in)
-{
-    //compute magnitude
-    float magnitude = in.x * in.x + in.y * in.y + in.z * in.z;
-    magnitude = std::sqrt(magnitude);
-    //apply magnitude
-    in.x /= magnitude;
-    in.y /= magnitude;
-    in.z /= magnitude;
-    //return normalized vector
-    return in;
-}
+#include "parser.h"
 
 int main(int argc, char** argv)
 {
@@ -41,121 +10,51 @@ int main(int argc, char** argv)
         std::cout << "Usage: ./stlparser [FILE.stl]" << std::endl;
         return 1;
     }
-    std::string fname = std::string(*(argv + 1));
-    std::ifstream inputfile(fname, std::ios::binary);
-    //skip header bytes
-    for (int i = 0; i < 80; i++)
-        inputfile.get();
-    //get number of triangles
-    unsigned int numOfTriangles;
-    inputfile.read((char*)&numOfTriangles, sizeof(numOfTriangles));
-    //vertex vector
+    //parsed models
+    std::vector<ParserInfo> parsedModels;
     std::vector<vec3> vertices;
-    //triangle vector
     std::vector<triangle> triangles;
-    //for eye calculation purposes
-    //min x
-    float maxX = -FLT_MAX;
-    //max x
-    float minX = FLT_MAX;
-    //min y
-    float maxY = -FLT_MAX;
-    //max y
-    float minY = FLT_MAX;
-    //max z
-    float maxZ = -FLT_MAX;
-    //min z
-    float minZ = FLT_MAX;
-    //center x
-    float centerX = 0;
-    //center y
-    float centerY = 0;
-    //float center z
-    float centerZ = 0;
-    //for each triangle
-    for (unsigned int i = 0; i < numOfTriangles; i++)
+    std::vector<std::string> fnames;
+    for (int i = 1; i < argc; i++)
+        fnames.push_back(std::string(*(argv + i)));
+    //will eventually become total number of vertices
+    long unsigned int firstVertex = 0;
+    //parse all models
+    for (int i = 0; i < fnames.size(); i++)
     {
-        //current triangle
-        triangle tri;
-        //get normal vector
-        vec3 norm;
-        inputfile.read((char*)&norm.x, sizeof(norm.x));
-        inputfile.read((char*)&norm.y, sizeof(norm.y));
-        inputfile.read((char*)&norm.z, sizeof(norm.z));
-        //normalize vector
-        norm = normalize(norm);
-        tri.normal = norm;
-        //get first vertex
-        vec3 v1;
-        inputfile.read((char*)&v1.x, sizeof(v1.x));
-        centerX += v1.x;
-        inputfile.read((char*)&v1.y, sizeof(v1.y));
-        centerY += v1.y;
-        inputfile.read((char*)&v1.z, sizeof(v1.z));
-        centerZ += v1.z;
-        //set max and min z
-        maxX = std::max(maxX, v1.x);
-        minX = std::min(minX, v1.x);
-        maxY = std::max(maxY, v1.y);
-        minY = std::min(minY, v1.y);
-        maxZ = std::max(maxZ, v1.z);
-        minZ = std::min(minZ, v1.z);
-        //set vertex 1 index in triangle
-        tri.aPos = vertices.size();
-        //push vertex to vertex vector
-        vertices.push_back(v1);
-        //get second vertex
-        vec3 v2;
-        inputfile.read((char*)&v2.x, sizeof(v2.x));
-        centerX += v2.x;
-        inputfile.read((char*)&v2.y, sizeof(v2.y));
-        centerY += v2.y;
-        inputfile.read((char*)&v2.z, sizeof(v2.z));
-        centerZ += v2.z;
-        //set max and min z
-        maxX = std::max(maxX, v2.x);
-        minX = std::min(minX, v2.x);
-        maxY = std::max(maxY, v2.y);
-        minY = std::min(minY, v2.y);
-        maxZ = std::max(maxZ, v2.z);
-        minZ = std::min(minZ, v2.z);
-        //set vertex 2 index in triangle
-        tri.bPos = vertices.size();
-        //push vertex to vertex vector
-        vertices.push_back(v2);
-        //get third vertex
-        vec3 v3;
-        inputfile.read((char*)&v3.x, sizeof(v3.x));
-        centerX += v3.x;
-        inputfile.read((char*)&v3.y, sizeof(v3.y));
-        centerY += v3.y;
-        inputfile.read((char*)&v3.z, sizeof(v3.z));
-        centerZ += v3.z;
-        //set max and min z
-        maxX = std::max(maxX, v3.x);
-        minX = std::min(minX, v3.x);
-        maxY = std::max(maxY, v3.y);
-        minY = std::min(minY, v3.y);
-        maxZ = std::max(maxZ, v3.z);
-        minZ = std::min(minZ, v3.z);
-        //set vertex 3 index in triangle
-        tri.cPos = vertices.size();
-        //push vertex to vertex vector
-        vertices.push_back(v3);
-        //push triangle to triangle vector
-        triangles.push_back(tri);
-        //skip attribute byte count
-        short skip;
-        inputfile.read((char*)&skip, sizeof(skip));
+        ParserInfo cur = parse(fnames[i], firstVertex);
+        for (vec3 i : cur.verts)
+            vertices.push_back(i);
+        for (triangle i : cur.tris)
+            triangles.push_back(i);
+        firstVertex += cur.verts.size();
+        parsedModels.push_back(cur);
     }
-    centerX /= vertices.size();
-    centerY /= vertices.size();
-    centerZ /= vertices.size();
-    //we have read all of the triangles
-    //close the input file
-    inputfile.close();
+    //center x, y, z
+    double cenX = 0, cenY = 0, cenZ = 0;
+    //max x, y, z
+    float maxX = parsedModels[0].maxX, maxY = parsedModels[0].maxY, maxZ = parsedModels[0].maxZ;
+    //min x, y, z
+    float minX = parsedModels[0].minX, minY = parsedModels[0].minY, minZ = parsedModels[0].minZ;
+    //get total x, y, and z
+    for (ParserInfo i : parsedModels)
+    {
+        cenX += i.totalX;
+        cenY += i.totalY;
+        cenZ += i.totalZ;
+        maxX = std::max(maxX, i.maxX);
+        maxY = std::max(maxY, i.maxY);
+        maxZ = std::max(maxZ, i.maxZ);
+        minX = std::min(minX, i.minX);
+        minY = std::min(minY, i.minY);
+        minZ = std::min(minZ, i.minZ);
+    }
+    //compute center
+    float centerX = (float) (cenX / firstVertex);
+    float centerY = (float) (cenY / firstVertex);
+    float centerZ = (float) (cenZ / firstVertex);
     //create output file stream
-    std::ofstream outputfile(fname + ".test");
+    std::ofstream outputfile(fnames[0] + "-and-others" + ".test");
     //write comment
     outputfile << "# AUTOGENERATED FILE: TODO FIX EYE AND ADD LIGHTS!" << "\n";
     outputfile << "# For light decision purposes: maxX = " << maxX << " minX = " << minX << "\n"; 
@@ -164,7 +63,7 @@ int main(int argc, char** argv)
     //write default size
     outputfile << "size " << DEFAULT_WIDTH << " " << DEFAULT_HEIGHT << "\n";
     //write maxverts
-    outputfile << "maxverts " << vertices.size() << "\n";
+    outputfile << "maxverts " << firstVertex << "\n";
     //write camera info
     outputfile << "camera ";
     //eye is at 2minz - maxz
@@ -176,9 +75,18 @@ int main(int argc, char** argv)
     //set fov to 60
     outputfile << FOVY << "\n";
     //write output file name
-    outputfile << "output " << fname << ".png" << "\n\n";
+    outputfile << "output " << fnames[0] << "-and-others" << ".png" << "\n\n";
+    outputfile << "directional 1 1 1 1 1 1\n";
+    outputfile << "directional -1 1 1 1 1 1\n";
+    outputfile << "directional 1 -1 1 1 1 1\n";
+    outputfile << "directional 1 1 -1 1 1 1\n";
+    outputfile << "directional -1 -1 1 1 1 1\n";
+    outputfile << "directional 1 -1 -1 1 1 1\n";
+    outputfile << "directional -1 1 -1 1 1 1\n";
+    outputfile << "directional 1 -1 -1 1 1 1\n";
+    outputfile << "directional -1 -1 -1 1 1 1\n";
     //write ambient lighting
-    outputfile << "ambient 1 1 1\n";
+    outputfile << "specular 1 0.84313 0\n";
     //write every vertex
     for (vec3 curVec : vertices)
         outputfile << "vertex " << curVec.x << " " << curVec.y << " " << curVec.z << "\n";

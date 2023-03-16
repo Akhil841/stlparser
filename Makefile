@@ -1,2 +1,2 @@
 all:
-	g++ main.cpp -o stlparser -O3
+	g++ main.cpp parser.cpp -o stlparser -O3
